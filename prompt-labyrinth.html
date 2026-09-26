@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PROMPT//LABYRINTH — Navigating the Intelligence Behind AI Prompts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+/* =========================================================
+   PROMPT//LABYRINTH — CSS
+   Token system:
+   --void       #05060a  (base background)
+   --deep       #0a0c14  (panel background)
+   --line       #1b2030  (hairline / borders)
+   --cyan       #33e6ff  (primary signal)
+   --violet     #9b6bff  (secondary signal)
+   --violet-dim #5a3fb8
+   --magenta    #ff5fc4  (alert / negative accent, used sparingly)
+   --ink        #e8ecf7  (primary text)
+   --ink-dim    #8891a8  (secondary text)
+   Type: Space Grotesk (display), Inter (body), IBM Plex Mono (data/labels)
+   ========================================================= */
+
+:root{
+  --void:#05060a;
+  --deep:#0a0d16;
+  --deep2:#0d1120;
+  --line:#1c2233;
+  --line-soft:#141824;
+  --cyan:#33e6ff;
+  --violet:#9b6bff;
+  --violet-dim:#5a3fb8;
+  --magenta:#ff5fc4;
+  --ink:#e8ecf7;
+  --ink-dim:#8892a8;
+  --ink-faint:#4d5670;
+  --display:'Space Grotesk',sans-serif;
+  --body:'Inter',sans-serif;
+  --mono:'IBM Plex Mono',monospace;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+
+body{
+  background:var(--void);
+  color:var(--ink);
+  font-family:var(--body);
+  overflow-x:hidden;
+  position:relative;
+  line-height:1.6;
+}
+
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; scroll-behavior:auto !important;}
+}
+
+::selection{background:var(--violet-dim);color:#fff;}
+
+/* ---------- background atmosphere: grid + drifting nodes ---------- */
+.bg-grid{
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background-image:
+    linear-gradient(rgba(155,107,255,0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(155,107,255,0.055) 1px, transparent 1px);
+  background-size:42px 42px;
+  mask-image:radial-gradient(ellipse 90% 70% at 50% 20%, black 40%, transparent 90%);
+}
+.bg-glow{
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(600px 400px at 15% 8%, rgba(155,107,255,0.14), transparent 60%),
+    radial-gradient(700px 500px at 85% 30%, rgba(51,230,255,0.10), transparent 60%),
+    radial-gradient(900px 600px at 50% 95%, rgba(90,63,184,0.10), transparent 60%);
+}
+canvas#particles{position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.55;}
+
+.wrap{position:relative; z-index:1;}
+
+/* ---------- scroll progress bar ---------- */
+.progress-rail{position:fixed; top:0; left:0; width:100%; height:2px; z-index:200; background:rgba(255,255,255,0.03);}
+.progress-fill{height:100%; width:0%; background:linear-gradient(90deg,var(--violet),var(--cyan)); box-shadow:0 0 12px var(--cyan);}
+
+/* ---------- nav / back-to-maze ---------- */
+.floating-nav{
+  position:fixed; right:24px; top:50%; transform:translateY(-50%);
+  z-index:150; display:flex; flex-direction:column; gap:10px;
+}
+@media (max-width:900px){.floating-nav{display:none;}}
+.floating-nav button{
+  all:unset; cursor:pointer; width:10px; height:10px; border-radius:50%;
+  background:var(--ink-faint); border:1px solid transparent; transition:.25s;
+}
+.floating-nav button:hover{background:var(--cyan); box-shadow:0 0 8px var(--cyan);}
+.floating-nav button.active{background:var(--cyan); box-shadow:0 0 10px var(--cyan); width:10px; height:22px; border-radius:6px;}
+
+.maze-return{
+  position:fixed; left:24px; bottom:24px; z-index:150;
+  display:flex; align-items:center; gap:8px;
+  padding:10px 16px; border-radius:100px;
+  background:rgba(10,13,22,0.75); backdrop-filter:blur(12px);
+  border:1px solid var(--line); color:var(--ink-dim);
+  font-family:var(--mono); font-size:.72rem; letter-spacing:.08em;
+  text-decoration:none; cursor:pointer; transition:.25s;
+  opacity:0; pointer-events:none; transform:translateY(8px);
+}
+.maze-return.show{opacity:1; pointer-events:auto; transform:translateY(0);}
+.maze-return:hover{border-color:var(--cyan); color:var(--cyan);}
+.maze-return svg{width:13px; height:13px;}
+
+/* ---------- generic section shell ---------- */
+section{
+  position:relative; padding:120px 8vw 100px;
+  max-width:1240px; margin:0 auto;
+  border-bottom:1px solid var(--line-soft);
+}
+section:last-of-type{border-bottom:none;}
+@media (max-width:640px){section{padding:80px 6vw 70px;}}
+
+.eyebrow{
+  font-family:var(--mono); font-size:.72rem; letter-spacing:.22em; text-transform:uppercase;
+  color:var(--cyan); display:flex; align-items:center; gap:10px; margin-bottom:18px;
+}
+.eyebrow::before{content:""; width:24px; height:1px; background:var(--cyan); box-shadow:0 0 6px var(--cyan);}
+
+.section-num{
+  font-family:var(--display); font-weight:700; font-size:clamp(2.6rem,7vw,5.4rem);
+  color:transparent; -webkit-text-stroke:1px rgba(155,107,255,0.35);
+  line-height:.9; position:absolute; top:60px; right:8vw; user-select:none; z-index:0;
+}
+@media (max-width:900px){.section-num{position:static; -webkit-text-stroke:1px rgba(155,107,255,0.3); font-size:2.2rem; margin-bottom:10px;}}
+
+h2.title{
+  font-family:var(--display); font-weight:600; font-size:clamp(1.9rem,4vw,3rem);
+  letter-spacing:-.01em; margin-bottom:14px; position:relative; z-index:1;
+}
+h2.title .grad{background:linear-gradient(90deg,var(--cyan),var(--violet)); -webkit-background-clip:text; background-clip:text; color:transparent;}
+
+.lede{color:var(--ink-dim); font-size:1.02rem; max-width:640px; margin-bottom:48px; position:relative; z-index:1;}
+
+/* ---------- glass panel ---------- */
+.panel{
+  background:linear-gradient(160deg, rgba(20,24,38,0.55), rgba(10,13,22,0.55));
+  border:1px solid var(--line); border-radius:14px;
+  backdrop-filter:blur(14px); padding:28px;
+  position:relative; overflow:hidden;
+}
+.panel::before{
+  content:""; position:absolute; inset:0; border-radius:14px; padding:1px;
+  background:linear-gradient(140deg, rgba(155,107,255,0.35), transparent 40%, rgba(51,230,255,0.25));
+  -webkit-mask:linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor; mask-composite:exclude; pointer-events:none;
+}
+
+/* =========================================================
+   HERO
+   ========================================================= */
+.hero{
+  min-height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center;
+  text-align:center; padding:0 6vw; position:relative; border-bottom:1px solid var(--line-soft);
+}
+.hero-tag{
+  font-family:var(--mono); font-size:.72rem; letter-spacing:.2em; color:var(--ink-dim);
+  border:1px solid var(--line); padding:7px 16px; border-radius:100px; margin-bottom:34px;
+  background:rgba(255,255,255,0.02);
+}
+.hero-tag b{color:var(--cyan); font-weight:500;}
+.hero h1{
+  font-family:var(--display); font-weight:700; letter-spacing:-.02em;
+  font-size:clamp(2.6rem,9vw,6.4rem); line-height:.95;
+  background:linear-gradient(180deg,#fff, #b9c2de 60%, var(--ink-faint));
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  text-shadow:0 0 60px rgba(155,107,255,0.25);
+}
+.hero h1 .slash{color:var(--cyan); -webkit-text-fill-color:var(--cyan); text-shadow:0 0 18px var(--cyan);}
+.hero-sub{
+  font-family:var(--body); font-weight:500; font-size:clamp(1rem,2vw,1.3rem);
+  color:var(--ink); margin-top:22px; letter-spacing:.01em;
+}
+.hero-desc{color:var(--ink-dim); max-width:520px; margin:16px auto 0; font-size:.98rem;}
+
+.enter-btn{
+  margin-top:48px; position:relative; display:inline-flex; align-items:center; gap:12px;
+  font-family:var(--mono); font-size:.85rem; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--void); background:linear-gradient(90deg,var(--cyan),var(--violet));
+  border:none; padding:16px 34px; border-radius:100px; cursor:pointer; font-weight:600;
+  box-shadow:0 0 0 rgba(51,230,255,0); transition:box-shadow .35s, transform .25s;
+}
+.enter-btn:hover{box-shadow:0 0 34px rgba(51,230,255,0.45); transform:translateY(-2px);}
+.enter-btn svg{width:16px; height:16px;}
+
+.hero-scroll-hint{
+  position:absolute; bottom:38px; left:50%; transform:translateX(-50%);
+  font-family:var(--mono); font-size:.65rem; letter-spacing:.2em; color:var(--ink-faint);
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+}
+.hero-scroll-hint .line{width:1px; height:34px; background:linear-gradient(var(--cyan),transparent); animation:pulseline 2s infinite;}
+@keyframes pulseline{0%{opacity:.2;}50%{opacity:1;}100%{opacity:.2;}}
+
+/* =========================================================
+   MAZE MAP
+   ========================================================= */
+.maze-section{padding-top:100px;}
+.maze-head{display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:20px; margin-bottom:36px; position:relative; z-index:1;}
+.legend{display:flex; gap:22px; flex-wrap:wrap; font-family:var(--mono); font-size:.7rem; color:var(--ink-dim); letter-spacing:.05em;}
+.legend span{display:flex; align-items:center; gap:8px;}
+.dot{width:8px; height:8px; border-radius:50%; display:inline-block;}
+.dot.path{background:transparent; border:1px solid var(--violet);}
+.dot.node{background:var(--cyan); box-shadow:0 0 6px var(--cyan);}
+.dot.current{background:var(--magenta); box-shadow:0 0 8px var(--magenta);}
+
+.maze-stage{
+  position:relative; width:100%; border-radius:18px; overflow:hidden;
+  border:1px solid var(--line); background:radial-gradient(ellipse at 50% 0%, rgba(90,63,184,0.14), transparent 60%), var(--deep);
+}
+.maze-stage svg{display:block; width:100%; height:auto;}
+
+.maze-path{fill:none; stroke:url(#pathGrad); stroke-width:2; stroke-linecap:round; filter:drop-shadow(0 0 6px rgba(155,107,255,0.5));}
+.maze-path-glow{fill:none; stroke:var(--cyan); stroke-width:1; stroke-opacity:.35; stroke-dasharray:2 10; stroke-linecap:round;}
+.maze-pulse{fill:var(--cyan); filter:drop-shadow(0 0 6px var(--cyan));}
+
+.maze-node{cursor:pointer;}
+.maze-node circle.ring{fill:rgba(10,13,22,0.9); stroke:var(--line); stroke-width:1.5; transition:.3s;}
+.maze-node circle.core{fill:var(--ink-faint); transition:.3s;}
+.maze-node text{font-family:var(--mono); pointer-events:none; transition:.3s;}
+.maze-node .num{fill:var(--ink-dim); font-size:9px; letter-spacing:.05em;}
+.maze-node .label{fill:var(--ink-dim); font-size:10.5px; font-weight:500;}
+.maze-node:hover circle.ring{stroke:var(--cyan);}
+.maze-node:hover circle.core{fill:var(--cyan);}
+.maze-node.active circle.ring{stroke:var(--cyan); filter:drop-shadow(0 0 8px var(--cyan));}
+.maze-node.active circle.core{fill:var(--cyan); filter:drop-shadow(0 0 6px var(--cyan));}
+.maze-node.active .num,.maze-node.active .label{fill:var(--ink);}
+
+.maze-caption{margin-top:20px; color:var(--ink-faint); font-family:var(--mono); font-size:.72rem; text-align:center; letter-spacing:.05em;}
+
+/* =========================================================
+   ROLE PROMPTING — before/after
+   ========================================================= */
+.ba-grid{display:grid; grid-template-columns:1fr auto 1fr; gap:22px; align-items:center; position:relative; z-index:1;}
+@media (max-width:800px){.ba-grid{grid-template-columns:1fr;}}
+.ba-arrow{display:flex; align-items:center; justify-content:center; color:var(--violet); font-family:var(--mono); font-size:.75rem;}
+.ba-arrow svg{width:26px; height:26px;}
+@media (max-width:800px){.ba-arrow{transform:rotate(90deg); margin:4px 0;}}
+.ba-card{padding:26px;}
+.ba-tag{font-family:var(--mono); font-size:.68rem; letter-spacing:.16em; margin-bottom:14px;}
+.ba-card.before .ba-tag{color:var(--ink-faint);}
+.ba-card.after .ba-tag{color:var(--cyan);}
+.ba-quote{font-family:var(--body); font-size:1.02rem; color:var(--ink); font-style:italic; line-height:1.55;}
+.ba-card.before{opacity:.7;}
+.ba-card.after{box-shadow:0 0 40px rgba(51,230,255,0.08);}
+
+.formula-row{
+  display:flex; align-items:center; justify-content:center; gap:18px; flex-wrap:wrap;
+  margin:50px 0 10px; font-family:var(--mono); position:relative; z-index:1;
+}
+.formula-chip{
+  padding:10px 20px; border:1px solid var(--line); border-radius:10px;
+  background:rgba(255,255,255,0.02); font-size:.82rem; letter-spacing:.06em; color:var(--ink);
+}
+.formula-plus{color:var(--ink-faint); font-size:1rem;}
+.formula-result{
+  margin-top:26px; text-align:center; font-family:var(--display); font-weight:600;
+  font-size:1.15rem; letter-spacing:.02em;
+  background:linear-gradient(90deg,var(--cyan),var(--violet)); -webkit-background-clip:text; background-clip:text; color:transparent;
+  position:relative; z-index:1;
+}
+.formula-line{width:80px; height:1px; background:var(--line); margin:22px auto; position:relative; z-index:1;}
+
+.benefit-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin-top:46px; position:relative; z-index:1;}
+.benefit-item{padding:18px 20px; border:1px solid var(--line-soft); border-radius:10px; font-size:.88rem; color:var(--ink-dim); display:flex; gap:10px; align-items:flex-start;}
+.benefit-item::before{content:"◆"; color:var(--violet); font-size:.6rem; margin-top:4px;}
+
+.callout{
+  margin-top:44px; padding:22px 26px; border-left:2px solid var(--magenta); border-radius:8px;
+  background:linear-gradient(90deg, rgba(255,95,196,0.07), transparent);
+  font-family:var(--body); font-size:.92rem; color:var(--ink); position:relative; z-index:1;
+}
+.callout b{color:var(--magenta); font-family:var(--mono); font-size:.68rem; letter-spacing:.12em; display:block; margin-bottom:8px;}
+
+/* =========================================================
+   TACTICS CARDS
+   ========================================================= */
+.tactic-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:20px; position:relative; z-index:1;}
+.tactic-card{padding:26px; cursor:pointer; transition:.3s;}
+.tactic-card:hover{transform:translateY(-4px); border-color:var(--cyan);}
+.tactic-num{font-family:var(--mono); font-size:.7rem; color:var(--violet); letter-spacing:.1em; margin-bottom:10px;}
+.tactic-title{font-family:var(--display); font-weight:600; font-size:1.25rem; margin-bottom:12px;}
+.tactic-body{color:var(--ink-dim); font-size:.88rem; max-height:0; overflow:hidden; transition:max-height .4s ease;}
+.tactic-card.open .tactic-body{max-height:400px; margin-top:8px;}
+.tactic-hint{font-family:var(--mono); font-size:.66rem; color:var(--ink-faint); letter-spacing:.08em;}
+.tactic-body .row{margin-bottom:12px;}
+.tactic-body .row .k{color:var(--cyan); font-family:var(--mono); font-size:.66rem; letter-spacing:.1em; display:block; margin-bottom:4px;}
+.tactic-body .ex{font-family:var(--mono); font-size:.78rem; background:rgba(255,255,255,0.03); border-radius:6px; padding:10px 12px; margin-top:4px;}
+.tactic-body .ex.weak{color:var(--ink-faint); text-decoration:line-through;}
+.tactic-body .ex.better{color:var(--cyan);}
+
+/* =========================================================
+   ZERO/FEW SHOT FORK
+   ========================================================= */
+.fork-wrap{position:relative; z-index:1;}
+.fork-toggle{display:flex; justify-content:center; gap:0; margin-bottom:40px;}
+.fork-toggle button{
+  all:unset; cursor:pointer; font-family:var(--mono); font-size:.78rem; letter-spacing:.1em;
+  padding:12px 30px; color:var(--ink-dim); border:1px solid var(--line); text-transform:uppercase;
+  transition:.3s;
+}
+.fork-toggle button:first-child{border-radius:100px 0 0 100px;}
+.fork-toggle button:last-child{border-radius:0 100px 100px 0; border-left:none;}
+.fork-toggle button.active{background:linear-gradient(90deg,var(--violet),var(--cyan)); color:var(--void); font-weight:600; border-color:transparent;}
+
+.fork-panels{position:relative; min-height:340px;}
+.fork-panel{display:none; grid-template-columns:1.1fr .9fr; gap:36px;}
+.fork-panel.active{display:grid;}
+@media (max-width:800px){.fork-panel.active{grid-template-columns:1fr;}}
+.fork-example{padding:26px;}
+.fork-example .lbl{font-family:var(--mono); font-size:.68rem; color:var(--violet); letter-spacing:.1em; margin-bottom:12px;}
+.shot-ex{font-family:var(--mono); font-size:.82rem; color:var(--ink-dim); padding:10px 0; border-bottom:1px dashed var(--line-soft);}
+.shot-ex .arrow-out{color:var(--cyan); font-weight:600;}
+.shot-ex.query{color:var(--ink); border-bottom:none; margin-top:14px;}
+.shot-output{
+  margin-top:16px; padding:14px 16px; border:1px solid var(--cyan); border-radius:8px;
+  font-family:var(--mono); font-size:.82rem; color:var(--cyan); background:rgba(51,230,255,0.05);
+  display:flex; justify-content:space-between; align-items:center;
+}
+.trait-list{list-style:none; display:flex; flex-direction:column; gap:12px;}
+.trait-list li{font-size:.88rem; color:var(--ink-dim); display:flex; gap:10px;}
+.trait-list li::before{content:"—"; color:var(--violet);}
+
+/* =========================================================
+   CLASSIFICATION CONSOLE
+   ========================================================= */
+.tag-row{display:flex; gap:14px; flex-wrap:wrap; margin-bottom:50px; position:relative; z-index:1;}
+.tag-card{flex:1; min-width:200px; padding:20px; text-align:left;}
+.tag-card .tc-title{font-family:var(--mono); font-size:.7rem; color:var(--violet); letter-spacing:.1em; margin-bottom:10px;}
+.tag-card .tc-vals{font-size:.86rem; color:var(--ink-dim);}
+
+.console{padding:0; overflow:hidden; position:relative; z-index:1;}
+.console-bar{display:flex; align-items:center; gap:8px; padding:14px 20px; border-bottom:1px solid var(--line); background:rgba(255,255,255,0.02);}
+.console-dot{width:8px; height:8px; border-radius:50%; background:var(--ink-faint);}
+.console-title{font-family:var(--mono); font-size:.7rem; color:var(--ink-faint); letter-spacing:.1em; margin-left:8px;}
+.console-body{padding:26px;}
+.console-label{font-family:var(--mono); font-size:.68rem; color:var(--ink-faint); letter-spacing:.1em; margin-bottom:8px;}
+.console-input{font-family:var(--mono); font-size:.92rem; color:var(--ink); padding:14px 16px; background:rgba(255,255,255,0.03); border-radius:8px; margin-bottom:22px; border:1px solid var(--line-soft);}
+.console-labels-row{display:flex; gap:10px; margin-bottom:24px; flex-wrap:wrap;}
+.console-chip{font-family:var(--mono); font-size:.72rem; padding:7px 14px; border:1px solid var(--line); border-radius:100px; color:var(--ink-dim);}
+.run-btn{
+  all:unset; cursor:pointer; font-family:var(--mono); font-size:.75rem; letter-spacing:.1em;
+  color:var(--void); background:linear-gradient(90deg,var(--cyan),var(--violet));
+  padding:11px 26px; border-radius:100px; display:inline-block;
+}
+.result-box{
+  margin-top:24px; padding:20px; border-radius:10px; border:1px solid var(--line);
+  opacity:0; transform:translateY(10px); transition:.5s;
+}
+.result-box.show{opacity:1; transform:translateY(0); border-color:var(--magenta); background:rgba(255,95,196,0.05);}
+.result-label{font-family:var(--mono); font-size:.68rem; color:var(--ink-faint); letter-spacing:.1em; margin-bottom:6px;}
+.result-value{font-family:var(--display); font-weight:700; font-size:1.4rem; color:var(--magenta); margin-bottom:14px;}
+.result-reason{font-size:.88rem; color:var(--ink-dim); font-style:italic;}
+.disclaimer{margin-top:18px; font-family:var(--mono); font-size:.68rem; color:var(--ink-faint); letter-spacing:.04em;}
+
+/* =========================================================
+   LLM vs TRADITIONAL ML
+   ========================================================= */
+.vs-grid{display:grid; grid-template-columns:1fr auto 1fr; gap:0; align-items:stretch; position:relative; z-index:1;}
+@media (max-width:800px){.vs-grid{grid-template-columns:1fr; gap:24px;}}
+.vs-col{padding:32px 28px;}
+.vs-col.llm{border-radius:14px 0 0 14px;}
+.vs-col.trad{border-radius:0 14px 14px 0;}
+@media (max-width:800px){.vs-col{border-radius:14px !important;}}
+.vs-col h3{font-family:var(--display); font-weight:600; font-size:1.4rem; margin-bottom:18px;}
+.vs-col.llm h3{color:var(--cyan);}
+.vs-col.trad h3{color:var(--violet);}
+.vs-tag-list{list-style:none; display:flex; flex-wrap:wrap; gap:8px; margin-bottom:20px;}
+.vs-tag-list li{font-family:var(--mono); font-size:.72rem; padding:6px 12px; border-radius:100px; border:1px solid var(--line-soft); color:var(--ink-dim);}
+.vs-fine{font-size:.86rem; color:var(--ink-dim); line-height:1.7;}
+.vs-mid{display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 26px; gap:8px;}
+@media (max-width:800px){.vs-mid{padding:8px 0;}}
+.vs-mid .versus{font-family:var(--mono); font-size:.7rem; color:var(--ink-faint); letter-spacing:.2em;}
+.vs-mid .bolt{width:1px; height:60px; background:linear-gradient(var(--violet),var(--cyan));}
+@media (max-width:800px){.vs-mid .bolt{width:60px; height:1px; background:linear-gradient(90deg,var(--violet),var(--cyan));}}
+
+.who-wins{text-align:center; margin:60px 0 10px; position:relative; z-index:1;}
+.who-wins .q{font-family:var(--display); font-weight:700; font-size:clamp(1.8rem,4vw,2.8rem); color:var(--ink); letter-spacing:-.01em;}
+.who-wins .a{
+  font-family:var(--mono); font-size:.95rem; letter-spacing:.12em; margin-top:12px;
+  color:var(--void); background:linear-gradient(90deg,var(--violet),var(--cyan));
+  display:inline-block; padding:8px 22px; border-radius:100px; font-weight:600;
+}
+
+.pref-grid{display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:50px; position:relative; z-index:1;}
+@media (max-width:700px){.pref-grid{grid-template-columns:1fr;}}
+.pref-col h4{font-family:var(--mono); font-size:.72rem; letter-spacing:.1em; margin-bottom:14px; color:var(--ink-dim); text-transform:uppercase;}
+.pref-col ul{list-style:none; display:flex; flex-direction:column; gap:10px;}
+.pref-col li{font-size:.88rem; color:var(--ink-dim); padding-left:18px; position:relative;}
+.pref-col li::before{content:""; position:absolute; left:0; top:8px; width:6px; height:6px; border-radius:50%; background:var(--cyan);}
+.pref-col.trad li::before{background:var(--violet);}
+
+/* =========================================================
+   DECISION CHAMBER
+   ========================================================= */
+.tree{display:flex; flex-direction:column; gap:0; position:relative; z-index:1;}
+.tree-q{padding:28px; margin-bottom:0; position:relative;}
+.tree-q .qn{font-family:var(--mono); font-size:.68rem; color:var(--cyan); letter-spacing:.1em; margin-bottom:8px;}
+.tree-q .qtext{font-family:var(--display); font-weight:600; font-size:1.2rem; margin-bottom:18px;}
+.tree-branch{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+@media (max-width:640px){.tree-branch{grid-template-columns:1fr;}}
+.branch-item{padding:14px 18px; border-radius:10px; border:1px solid var(--line-soft); font-size:.85rem; display:flex; gap:10px; align-items:baseline;}
+.branch-item .yn{font-family:var(--mono); font-size:.7rem; letter-spacing:.08em; flex-shrink:0;}
+.branch-item.yes .yn{color:var(--cyan);}
+.branch-item.no .yn{color:var(--violet);}
+.branch-item span.txt{color:var(--ink-dim);}
+.tree-connector{width:1px; height:34px; background:var(--line); margin:0 auto;}
+.tree-final{
+  margin-top:20px; text-align:center; padding:24px; font-family:var(--display); font-weight:600;
+  font-size:1.15rem; color:var(--ink);
+}
+
+/* =========================================================
+   MY LEARNING
+   ========================================================= */
+.learn-flow{display:flex; flex-direction:column; gap:0; position:relative; z-index:1; max-width:780px; margin:0 auto;}
+.learn-step{padding:26px 0; border-bottom:1px solid var(--line-soft); display:grid; grid-template-columns:170px 1fr; gap:24px;}
+@media (max-width:640px){.learn-step{grid-template-columns:1fr; gap:8px;}}
+.learn-step:last-child{border-bottom:none;}
+.learn-step .lk{font-family:var(--mono); font-size:.68rem; letter-spacing:.1em; color:var(--violet); text-transform:uppercase; padding-top:3px;}
+.learn-step .lv{font-size:1.02rem; color:var(--ink); font-style:italic; line-height:1.6;}
+.learn-step.takeaway .lk{color:var(--cyan);}
+.learn-step.takeaway .lv{font-style:normal; font-weight:500;}
+
+.big-formula{
+  margin:70px auto 20px; display:flex; flex-wrap:wrap; justify-content:center; gap:16px; max-width:900px; position:relative; z-index:1;
+}
+.final-statement{
+  text-align:center; margin-top:60px; font-family:var(--display); font-weight:700;
+  font-size:clamp(1.4rem,3.4vw,2.2rem); line-height:1.4; position:relative; z-index:1;
+}
+.final-statement .dim{color:var(--ink-faint); display:block;}
+.final-statement .bright{background:linear-gradient(90deg,var(--cyan),var(--violet)); -webkit-background-clip:text; background-clip:text; color:transparent;}
+
+/* =========================================================
+   CHEAT SHEET
+   ========================================================= */
+.sheet{padding:44px; position:relative; z-index:1;}
+.sheet-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:22px; margin-bottom:34px;}
+.sheet-item .si-t{font-family:var(--mono); font-size:.72rem; color:var(--cyan); letter-spacing:.08em; margin-bottom:6px;}
+.sheet-item .si-d{font-size:.85rem; color:var(--ink-dim);}
+.golden{
+  margin-top:20px; padding:22px; border-radius:10px; background:rgba(155,107,255,0.06); border:1px dashed var(--violet-dim);
+  font-family:var(--mono); font-size:.82rem; color:var(--ink); line-height:1.9;
+}
+.golden .gt{font-family:var(--mono); font-size:.68rem; color:var(--violet); letter-spacing:.12em; margin-bottom:10px; display:block;}
+.remember{margin-top:26px; display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px;}
+.remember div{font-family:var(--mono); font-size:.76rem; color:var(--ink-dim); padding:12px 14px; border-left:2px solid var(--cyan); background:rgba(255,255,255,0.02);}
+.print-btn{
+  margin-top:30px; all:unset; cursor:pointer; font-family:var(--mono); font-size:.72rem; letter-spacing:.1em;
+  color:var(--ink-dim); border:1px solid var(--line); padding:10px 20px; border-radius:100px; display:inline-block;
+}
+.print-btn:hover{color:var(--cyan); border-color:var(--cyan);}
+
+/* =========================================================
+   REFERENCES
+   ========================================================= */
+.ref-list{display:flex; flex-direction:column; gap:14px; position:relative; z-index:1;}
+.ref-item{
+  display:flex; justify-content:space-between; align-items:center; gap:20px;
+  padding:20px 24px; border-radius:10px; border:1px solid var(--line-soft); text-decoration:none;
+  transition:.25s;
+}
+.ref-item:hover{border-color:var(--cyan); background:rgba(51,230,255,0.03);}
+.ref-item .rn{font-family:var(--mono); font-size:.72rem; color:var(--ink-faint); flex-shrink:0; width:26px;}
+.ref-item .rt{color:var(--ink); font-size:.94rem; flex:1;}
+.ref-item .ru{font-family:var(--mono); font-size:.72rem; color:var(--ink-faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:280px;}
+@media (max-width:700px){.ref-item{flex-wrap:wrap;} .ref-item .ru{max-width:100%;}}
+.ref-item svg{width:14px; height:14px; color:var(--ink-faint); flex-shrink:0;}
+.ref-item:hover svg{color:var(--cyan);}
+
+/* ---------- footer ---------- */
+footer{
+  padding:60px 8vw 50px; text-align:center; position:relative; z-index:1;
+}
+footer .flogo{font-family:var(--display); font-weight:700; font-size:1.1rem; letter-spacing:-.01em; color:var(--ink);}
+footer .flogo .slash{color:var(--cyan);}
+footer .ftag{font-family:var(--mono); font-size:.75rem; color:var(--ink-faint); margin-top:10px; font-style:italic;}
+
+/* utility */
+.reveal{opacity:0; transform:translateY(26px); transition:opacity .7s ease, transform .7s ease;}
+.reveal.in{opacity:1; transform:translateY(0);}
+</style>
+</head>
+<body>
+
+<canvas id="particles"></canvas>
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+
+<div class="progress-rail"><div class="progress-fill" id="progressFill"></div></div>
+
+<nav class="floating-nav" id="floatingNav"></nav>
+
+<a href="#maze" class="maze-return" id="mazeReturn">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M3 12h18"/></svg>
+  BACK TO MAZE
+</a>
+
+<div class="wrap">
+
+<!-- =========================================================
+     SECTION 0 — HERO
+========================================================= -->
+<section class="hero" id="hero">
+  <div class="hero-tag">MCA <b>•</b> AI PROMPTING STUDY</div>
+  <h1>PROMPT<span class="slash">//</span>LABYRINTH</h1>
+  <p class="hero-sub">Navigating the Intelligence Behind AI Prompts</p>
+  <p class="hero-desc">One task. Multiple prompting strategies. Different paths to the same goal.</p>
+  <button class="enter-btn" id="enterBtn">
+    ENTER THE LABYRINTH
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+  </button>
+  <div class="hero-scroll-hint"><span>SCROLL</span><div class="line"></div></div>
+</section>
+
+<!-- =========================================================
+     SECTION 1 — THE MAZE MAP
+========================================================= -->
+<section class="maze-section" id="maze">
+  <div class="eyebrow">Navigation System</div>
+  <h2 class="title">The Maze Map</h2>
+  <p class="lede">This labyrinth is not a game. It is a visual index of the concepts explored in this study — click any node to travel directly to that section.</p>
+
+  <div class="maze-head">
+    <div class="legend">
+      <span><i class="dot path"></i> Knowledge Path</span>
+      <span><i class="dot node"></i> Concept Node</span>
+      <span><i class="dot current"></i> Current Section</span>
+    </div>
+  </div>
+
+  <div class="maze-stage panel">
+    <svg id="mazeSvg" viewBox="0 0 1180 620" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="pathGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#9b6bff"/>
+          <stop offset="100%" stop-color="#33e6ff"/>
+        </linearGradient>
+      </defs>
+      <!-- winding path connecting all nodes, drawn first so nodes sit above -->
+      <path id="mazeMainPath" class="maze-path"
+        d="M60,60 L280,60 L280,180 L520,180 L520,60 L760,60 L760,180
+           L1000,180 L1000,300 L640,300 L640,420 L280,420 L280,300
+           L60,300 L60,420 L60,540 L400,540 L400,460 L740,460 L740,560 L1080,560"/>
+      <path class="maze-path-glow"
+        d="M60,60 L280,60 L280,180 L520,180 L520,60 L760,60 L760,180
+           L1000,180 L1000,300 L640,300 L640,420 L280,420 L280,300
+           L60,300 L60,420 L60,540 L400,540 L400,460 L740,460 L740,560 L1080,560"/>
+      <circle id="mazePulse" class="maze-pulse" r="4"/>
+
+      <!-- nodes: g.maze-node data-target -->
+      <g class="maze-node" data-target="role"><circle class="ring" cx="60" cy="60" r="26"/><circle class="core" cx="60" cy="60" r="4"/><text class="num" x="60" y="34" text-anchor="middle">01</text><text class="label" x="60" y="98" text-anchor="middle">ROLE PROMPTING</text></g>
+
+      <g class="maze-node" data-target="tactics"><circle class="ring" cx="520" cy="180" r="26"/><circle class="core" cx="520" cy="180" r="4"/><text class="num" x="520" y="154" text-anchor="middle">02</text><text class="label" x="520" y="218" text-anchor="middle">PROMPTING TACTICS</text></g>
+
+      <g class="maze-node" data-target="fork"><circle class="ring" cx="1000" cy="180" r="26"/><circle class="core" cx="1000" cy="180" r="4"/><text class="num" x="1000" y="154" text-anchor="middle">03</text><text class="label" x="1000" y="218" text-anchor="middle">ZERO / FEW-SHOT</text></g>
+
+      <g class="maze-node" data-target="classify"><circle class="ring" cx="640" cy="300" r="26"/><circle class="core" cx="640" cy="300" r="4"/><text class="num" x="640" y="274" text-anchor="middle">04</text><text class="label" x="640" y="338" text-anchor="middle">TEXT CLASSIFICATION</text></g>
+
+      <g class="maze-node" data-target="vs"><circle class="ring" cx="280" cy="420" r="26"/><circle class="core" cx="280" cy="420" r="4"/><text class="num" x="280" y="394" text-anchor="middle">05</text><text class="label" x="280" y="458" text-anchor="middle">LLM vs TRADITIONAL ML</text></g>
+
+      <g class="maze-node" data-target="decision"><circle class="ring" cx="60" cy="540" r="26"/><circle class="core" cx="60" cy="540" r="4"/><text class="num" x="60" y="514" text-anchor="middle">06</text><text class="label" x="60" y="578" text-anchor="middle">DECISION</text></g>
+
+      <g class="maze-node" data-target="learning"><circle class="ring" cx="400" cy="460" r="26"/><circle class="core" cx="400" cy="460" r="4"/><text class="num" x="400" y="434" text-anchor="middle">07</text><text class="label" x="400" y="498" text-anchor="middle">MY LEARNING</text></g>
+
+      <g class="maze-node" data-target="cheatsheet"><circle class="ring" cx="740" cy="560" r="26"/><circle class="core" cx="740" cy="560" r="4"/><text class="num" x="740" y="534" text-anchor="middle">08</text><text class="label" x="740" y="598" text-anchor="middle">CHEAT SHEET</text></g>
+
+      <g class="maze-node" data-target="refs"><circle class="ring" cx="1080" cy="560" r="26"/><circle class="core" cx="1080" cy="560" r="4"/><text class="num" x="1080" y="534" text-anchor="middle">09</text><text class="label" x="1080" y="598" text-anchor="middle">REFERENCES</text></g>
+    </svg>
+  </div>
+  <p class="maze-caption">◆ Nine nodes. One continuous path. Click a node, or scroll — the map tracks your position below.</p>
+</section>
+
+<!-- =========================================================
+     SECTION 2 — ROLE PROMPTING
+========================================================= -->
+<section id="role">
+  <div class="section-num">01</div>
+  <div class="eyebrow">Node 01</div>
+  <h2 class="title">Role <span class="grad">Prompting</span></h2>
+  <p class="lede">What is Role Prompting? Assigning a role, persona, or perspective to an LLM so that its response is better aligned with the intended task, audience, and style.</p>
+
+  <div class="ba-grid reveal">
+    <div class="panel ba-card before">
+      <div class="ba-tag">BEFORE</div>
+      <p class="ba-quote">"Explain NLP."</p>
+    </div>
+    <div class="ba-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+    <div class="panel ba-card after">
+      <div class="ba-tag">AFTER</div>
+      <p class="ba-quote">"Act as a beginner-friendly NLP teacher. Explain NLP to an MCA student using one simple real-world example."</p>
+    </div>
+  </div>
+
+  <div class="formula-row reveal">
+    <div class="formula-chip">ROLE</div><span class="formula-plus">+</span>
+    <div class="formula-chip">CONTEXT</div><span class="formula-plus">+</span>
+    <div class="formula-chip">TASK</div>
+  </div>
+  <div class="formula-line reveal"></div>
+  <p class="formula-result reveal">MORE TARGETED RESPONSE</p>
+
+  <div class="benefit-grid reveal">
+    <div class="benefit-item">Better relevance to the actual question asked</div>
+    <div class="benefit-item">Consistent style across a conversation</div>
+    <div class="benefit-item">Audience adaptation — expert vs. beginner tone</div>
+    <div class="benefit-item">Task orientation instead of generic output</div>
+    <div class="benefit-item">Useful for teaching, coding, analysis and support</div>
+  </div>
+
+  <div class="callout reveal">
+    <b>CRITICAL THINKING</b>
+    A role guides behaviour; it does not guarantee expertise or correctness. The model still needs accurate context and verification.
+  </div>
+</section>
+
+<!-- =========================================================
+     SECTION 3 — GPT PROMPTING TACTICS
+========================================================= -->
+<section id="tactics">
+  <div class="section-num">02</div>
+  <div class="eyebrow">Node 02</div>
+  <h2 class="title">GPT Prompting <span class="grad">Tactics</span></h2>
+  <p class="lede">Six practical tactics that shape how clearly an LLM understands what is being asked. Click a card to expand it.</p>
+
+  <div class="tactic-grid" id="tacticGrid">
+    <div class="panel tactic-card">
+      <div class="tactic-num">TACTIC 01</div>
+      <div class="tactic-title">Be Clear</div>
+      <div class="tactic-hint">Click to expand ↓</div>
+      <div class="tactic-body">
+        <div class="row"><span class="k">WHAT IT MEANS</span>State the task in unambiguous, specific language.</div>
+        <div class="row"><span class="k">WHY IT HELPS</span>Removes guesswork so the model doesn't have to infer intent.</div>
+        <div class="row"><span class="k">EXAMPLE</span>
+          <div class="ex weak">Weak: "Explain Python."</div>
+          <div class="ex better">Better: "Explain Python functions to a beginner in 5 simple points with one example."</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel tactic-card">
+      <div class="tactic-num">TACTIC 02</div>
+      <div class="tactic-title">Give Context</div>
+      <div class="tactic-hint">Click to expand ↓</div>
+      <div class="tactic-body">
+        <div class="row"><span class="k">WHAT IT MEANS</span>Supply background — audience, purpose, prior information.</div>
+        <div class="row"><span class="k">WHY IT HELPS</span>Context narrows the space of plausible answers.</div>
+        <div class="row"><span class="k">EXAMPLE</span>
+          <div class="ex weak">Weak: "Summarise this."</div>
+          <div class="ex better">Better: "Summarise this report for a non-technical manager in 3 bullet points."</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel tactic-card">
+      <div class="tactic-num">TACTIC 03</div>
+      <div class="tactic-title">Use Delimiters</div>
+      <div class="tactic-hint">Click to expand ↓</div>
+      <div class="tactic-body">
+        <div class="row"><span class="k">WHAT IT MEANS</span>Mark input sections clearly with quotes, dashes, or tags.</div>
+        <div class="row"><span class="k">WHY IT HELPS</span>Prevents instructions and content from being confused with each other.</div>
+        <div class="row"><span class="k">EXAMPLE</span>
+          <div class="ex weak">Weak: Summarise the following text is late...</div>
+          <div class="ex better">Better: Summarise the text between triple quotes: """text"""</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel tactic-card">
+      <div class="tactic-num">TACTIC 04</div>
+      <div class="tactic-title">Specify Output Format</div>
+      <div class="tactic-hint">Click to expand ↓</div>
+      <div class="tactic-body">
+        <div class="row"><span class="k">WHAT IT MEANS</span>Tell the model exactly how the answer should be structured.</div>
+        <div class="row"><span class="k">WHY IT HELPS</span>Predictable output is easier to parse and reuse.</div>
+        <div class="row"><span class="k">EXAMPLE</span>
+          <div class="ex weak">Weak: "List some fruits."</div>
+          <div class="ex better">Better: "List 5 fruits as a numbered list, one word each."</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel tactic-card">
+      <div class="tactic-num">TACTIC 05</div>
+      <div class="tactic-title">Give Examples</div>
+      <div class="tactic-hint">Click to expand ↓</div>
+      <div class="tactic-body">
+        <div class="row"><span class="k">WHAT IT MEANS</span>Show sample input/output pairs before the real task.</div>
+        <div class="row"><span class="k">WHY IT HELPS</span>Demonstrates the expected pattern instead of describing it abstractly.</div>
+        <div class="row"><span class="k">EXAMPLE</span>
+          <div class="ex weak">Weak: "Classify sentiment."</div>
+          <div class="ex better">Better: "Great! → Positive. Terrible. → Negative. Now classify: 'It was okay.'"</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel tactic-card">
+      <div class="tactic-num">TACTIC 06</div>
+      <div class="tactic-title">Iterate and Refine</div>
+      <div class="tactic-hint">Click to expand ↓</div>
+      <div class="tactic-body">
+        <div class="row"><span class="k">WHAT IT MEANS</span>Treat the first response as a draft and refine the prompt.</div>
+        <div class="row"><span class="k">WHY IT HELPS</span>Prompting is rarely perfect on the first attempt.</div>
+        <div class="row"><span class="k">EXAMPLE</span>
+          <div class="ex weak">First: "Write a bio."</div>
+          <div class="ex better">Refined: "Rewrite that bio in a more formal tone, under 50 words."</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================================
+     SECTION 4 — ZERO-SHOT vs FEW-SHOT
+========================================================= -->
+<section id="fork">
+  <div class="section-num">03</div>
+  <div class="eyebrow">Node 03 — A Fork in the Labyrinth</div>
+  <h2 class="title">Zero-Shot <span class="grad">vs</span> Few-Shot</h2>
+  <p class="lede">Two paths through the same classification task. Toggle between them to compare.</p>
+
+  <div class="fork-wrap">
+    <div class="fork-toggle">
+      <button class="active" data-fork="zero">Zero-Shot</button>
+      <button data-fork="few">Few-Shot</button>
+    </div>
+
+    <div class="fork-panels">
+      <div class="fork-panel active" id="fork-zero">
+        <div class="panel fork-example">
+          <div class="lbl">NO EXAMPLES PROVIDED</div>
+          <div class="shot-ex query">Classify this review as Positive, Negative or Neutral:<br>"The camera quality is excellent."</div>
+          <div class="shot-output"><span>OUTPUT</span><span class="arrow-out">POSITIVE</span></div>
+        </div>
+        <div class="panel">
+          <div class="lbl" style="color:var(--cyan)">ZERO-SHOT TRAITS</div>
+          <ul class="trait-list">
+            <li>Fast to write and run</li>
+            <li>Simple — no example curation needed</li>
+            <li>No examples required</li>
+            <li>May be ambiguous on edge cases</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="fork-panel" id="fork-few">
+        <div class="panel fork-example">
+          <div class="lbl">EXAMPLES PROVIDED BEFORE THE TASK</div>
+          <div class="shot-ex">"The product is excellent." <span class="arrow-out">→ Positive</span></div>
+          <div class="shot-ex">"The product stopped working." <span class="arrow-out">→ Negative</span></div>
+          <div class="shot-ex">"The product arrived yesterday." <span class="arrow-out">→ Neutral</span></div>
+          <div class="shot-ex query">"The camera quality is excellent." → ?</div>
+        </div>
+        <div class="panel">
+          <div class="lbl" style="color:var(--violet)">FEW-SHOT TRAITS</div>
+          <ul class="trait-list">
+            <li>Demonstrates the expected pattern directly</li>
+            <li>Useful for ambiguous or nuanced tasks</li>
+            <li>Uses more tokens / context window</li>
+            <li>Chosen examples influence performance</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================================
+     SECTION 5 — TEXT CLASSIFICATION LAB
+========================================================= -->
+<section id="classify">
+  <div class="section-num">04</div>
+  <div class="eyebrow">Node 04 — Classification Lab</div>
+  <h2 class="title">Text <span class="grad">Classification</span></h2>
+  <p class="lede">Text classification assigns a piece of text to a predefined category. Below are three common category systems, followed by a simulated classification console.</p>
+
+  <div class="tag-row">
+    <div class="panel tag-card"><div class="tc-title">SENTIMENT</div><div class="tc-vals">Positive / Negative / Neutral</div></div>
+    <div class="panel tag-card"><div class="tc-title">SUPPORT</div><div class="tc-vals">Billing / Technical / Delivery / Other</div></div>
+    <div class="panel tag-card"><div class="tc-title">TOPIC</div><div class="tc-vals">Sports / Technology / Politics / Business</div></div>
+  </div>
+
+  <div class="panel console">
+    <div class="console-bar"><span class="console-dot"></span><span class="console-dot"></span><span class="console-dot"></span><span class="console-title">SIMULATED CLASSIFICATION CONSOLE</span></div>
+    <div class="console-body">
+      <div class="console-label">INPUT TEXT</div>
+      <div class="console-input">"The delivery was late and the package was damaged."</div>
+      <div class="console-label">AVAILABLE LABELS</div>
+      <div class="console-labels-row">
+        <span class="console-chip">POSITIVE</span><span class="console-chip">NEGATIVE</span><span class="console-chip">NEUTRAL</span>
+      </div>
+      <button class="run-btn" id="runClassify">RUN CLASSIFICATION</button>
+      <div class="result-box" id="resultBox">
+        <div class="result-label">AI CLASSIFICATION</div>
+        <div class="result-value">NEGATIVE</div>
+        <div class="result-reason">Reason: The text contains dissatisfaction with delivery and product condition.</div>
+      </div>
+      <div class="disclaimer">◆ This is a visual demonstration of a classification workflow — not a live AI API call.</div>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================================
+     SECTION 6 — LLM vs TRADITIONAL ML
+========================================================= -->
+<section id="vs">
+  <div class="section-num">05</div>
+  <div class="eyebrow">Node 05</div>
+  <h2 class="title">LLM <span class="grad">vs</span> Traditional ML</h2>
+  <p class="lede">Two different systems for the same underlying problem: assigning categories to text.</p>
+
+  <div class="vs-grid">
+    <div class="panel vs-col llm">
+      <h3>LLM</h3>
+      <ul class="vs-tag-list">
+        <li>Zero-Shot</li><li>Few-Shot</li><li>Semantic Understanding</li><li>Flexible</li><li>Less Task-Specific Training</li>
+      </ul>
+      <p class="vs-fine">Understands meaning and context without needing a large labelled dataset for every new task.</p>
+    </div>
+    <div class="vs-mid"><div class="bolt"></div><span class="versus">VS</span><div class="bolt"></div></div>
+    <div class="panel vs-col trad">
+      <h3>Traditional ML</h3>
+      <ul class="vs-tag-list">
+        <li>TF-IDF</li><li>SVM</li><li>Naïve Bayes</li><li>Logistic Regression</li><li>Fast</li><li>Low Cost</li>
+      </ul>
+      <p class="vs-fine">Built for a fixed task, trained on labelled data, and typically cheaper to run at scale.</p>
+    </div>
+  </div>
+
+  <div class="who-wins reveal">
+    <div class="q">"WHO WINS?"</div>
+    <div class="a">IT DEPENDS.</div>
+  </div>
+
+  <div class="pref-grid">
+    <div class="pref-col">
+      <h4>LLMs may be preferable when</h4>
+      <ul>
+        <li>Labelled data is limited</li>
+        <li>Semantic understanding matters</li>
+        <li>Tasks change frequently</li>
+        <li>Flexible classification is required</li>
+      </ul>
+    </div>
+    <div class="pref-col trad">
+      <h4>Traditional models may be preferable when</h4>
+      <ul>
+        <li>The classification task is fixed</li>
+        <li>Large-scale inference is required</li>
+        <li>Latency matters</li>
+        <li>Cost needs to remain low</li>
+        <li>Sufficient labelled training data exists</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout reveal">
+    <b>CRITICAL THINKING</b>
+    LLMs are not automatically better simply because they are larger.
+  </div>
+</section>
+
+<!-- =========================================================
+     SECTION 7 — DECISION CHAMBER
+========================================================= -->
+<section id="decision">
+  <div class="section-num">06</div>
+  <div class="eyebrow">Node 06 — The Decision Chamber</div>
+  <h2 class="title">Which Path Should <span class="grad">I Choose?</span></h2>
+  <p class="lede">A short decision tree for choosing between an LLM-based approach and a traditional classifier.</p>
+
+  <div class="tree">
+    <div class="panel tree-q reveal">
+      <div class="qn">QUESTION 01</div>
+      <div class="qtext">Do I have many labelled examples?</div>
+      <div class="tree-branch">
+        <div class="branch-item yes"><span class="yn">YES →</span><span class="txt">Consider traditional ML / fine-tuning</span></div>
+        <div class="branch-item no"><span class="yn">NO →</span><span class="txt">Try zero-shot or few-shot LLM prompting</span></div>
+      </div>
+    </div>
+    <div class="tree-connector"></div>
+    <div class="panel tree-q reveal">
+      <div class="qn">QUESTION 02</div>
+      <div class="qtext">Is semantic / contextual understanding important?</div>
+      <div class="tree-branch">
+        <div class="branch-item yes"><span class="yn">YES →</span><span class="txt">An LLM may be useful</span></div>
+        <div class="branch-item no"><span class="yn">NO →</span><span class="txt">A traditional classifier may be sufficient</span></div>
+      </div>
+    </div>
+    <div class="tree-connector"></div>
+    <div class="panel tree-q reveal">
+      <div class="qn">QUESTION 03</div>
+      <div class="qtext">Is the system processing huge amounts of fixed-format text?</div>
+      <div class="tree-branch">
+        <div class="branch-item yes"><span class="yn">YES →</span><span class="txt">Consider a specialised classifier</span></div>
+        <div class="branch-item no"><span class="yn">NO →</span><span class="txt">An LLM may provide useful flexibility</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tree-final reveal">"Choose the simplest approach that performs well for the actual task."</div>
+</section>
+
+<!-- =========================================================
+     SECTION 8 — MY LEARNING
+========================================================= -->
+<section id="learning">
+  <div class="section-num">07</div>
+  <div class="eyebrow">Node 07 — Reflection</div>
+  <h2 class="title">My <span class="grad">Learning</span></h2>
+
+  <div class="learn-flow">
+    <div class="learn-step reveal">
+      <div class="lk">What I Initially Thought</div>
+      <div class="lv">"I initially thought that a more powerful LLM would automatically produce better classification."</div>
+    </div>
+    <div class="learn-step reveal">
+      <div class="lk">What I Learned</div>
+      <div class="lv">"Model size alone does not determine the best solution."</div>
+    </div>
+    <div class="learn-step takeaway reveal">
+      <div class="lk">My Takeaway</div>
+      <div class="lv">"Prompt engineering is not about finding a magical sentence. It is about communicating a task clearly."</div>
+    </div>
+  </div>
+
+  <div class="big-formula reveal">
+    <div class="formula-chip">ROLE</div><span class="formula-plus">+</span>
+    <div class="formula-chip">CONTEXT</div><span class="formula-plus">+</span>
+    <div class="formula-chip">TASK</div><span class="formula-plus">+</span>
+    <div class="formula-chip">EXAMPLES</div><span class="formula-plus">+</span>
+    <div class="formula-chip">CONSTRAINTS</div><span class="formula-plus">+</span>
+    <div class="formula-chip">OUTPUT</div>
+  </div>
+  <div class="formula-line reveal"></div>
+  <p class="formula-result reveal">BETTER TASK SPECIFICATION</p>
+
+  <p class="final-statement reveal">
+    <span class="dim">Don't choose the biggest model.</span>
+    <span class="bright">Choose the right approach for the problem.</span>
+  </p>
+</section>
+
+<!-- =========================================================
+     SECTION 9 — CHEAT SHEET
+========================================================= -->
+<section id="cheatsheet">
+  <div class="section-num">08</div>
+  <div class="eyebrow">Node 08 — Printable</div>
+  <h2 class="title">Prompting <span class="grad">Quick Reference</span></h2>
+
+  <div class="panel sheet reveal">
+    <div class="sheet-grid">
+      <div class="sheet-item"><div class="si-t">ROLE PROMPTING</div><div class="si-d">Role + Context + Task + Constraints + Output</div></div>
+      <div class="sheet-item"><div class="si-t">ZERO-SHOT</div><div class="si-d">Task without examples</div></div>
+      <div class="sheet-item"><div class="si-t">FEW-SHOT</div><div class="si-d">Task + labelled examples</div></div>
+      <div class="sheet-item"><div class="si-t">TEXT CLASSIFICATION</div><div class="si-d">Text → Category</div></div>
+      <div class="sheet-item"><div class="si-t">LLM</div><div class="si-d">Flexible / Semantic / Zero-shot / Few-shot</div></div>
+      <div class="sheet-item"><div class="si-t">TRADITIONAL ML</div><div class="si-d">Fast / Efficient / Fixed tasks / TF-IDF + SVM etc.</div></div>
+    </div>
+
+    <div class="golden">
+      <span class="gt">GOLDEN PROMPT TEMPLATE</span>
+      Act as [ROLE].<br>
+      Context: [CONTEXT].<br>
+      Task: [TASK].<br>
+      Input: [INPUT].<br>
+      Examples: [EXAMPLES].<br>
+      Constraints: [RULES].<br>
+      Output: [FORMAT].
+    </div>
+
+    <div class="remember">
+      <div>CLEAR &gt; VAGUE</div>
+      <div>CONTEXT &gt; ASSUMPTION</div>
+      <div>EXAMPLES &gt; AMBIGUITY</div>
+      <div>EVALUATION &gt; BLIND TRUST</div>
+    </div>
+
+    <button class="print-btn" id="printBtn">↓ PRINT THIS REFERENCE SHEET</button>
+  </div>
+</section>
+
+<!-- =========================================================
+     SECTION 10 — REFERENCES
+========================================================= -->
+<section id="refs">
+  <div class="section-num">09</div>
+  <div class="eyebrow">Node 09 — Source Archive</div>
+  <h2 class="title">References</h2>
+
+  <div class="ref-list reveal">
+    <a class="ref-item" href="https://www.linkedin.com/pulse/mastering-role-based-prompts-comprehensive-guide-digital-vikash-lk4jf" target="_blank" rel="noopener">
+      <span class="rn">01</span><span class="rt">LinkedIn — Mastering Role-Based Prompts</span><span class="ru">linkedin.com/pulse/...vikash-lk4jf</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M8 7h9v9"/></svg>
+    </a>
+    <a class="ref-item" href="https://www.promptingguide.ai/techniques" target="_blank" rel="noopener">
+      <span class="rn">02</span><span class="rt">Prompt Engineering Guide</span><span class="ru">promptingguide.ai/techniques</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M8 7h9v9"/></svg>
+    </a>
+    <a class="ref-item" href="https://www.striveworks.com/blog/text-classification-with-llms-a-roundup-of-the-best-methods" target="_blank" rel="noopener">
+      <span class="rn">03</span><span class="rt">Striveworks — Text Classification with LLMs</span><span class="ru">striveworks.com/blog/...</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M8 7h9v9"/></svg>
+    </a>
+    <a class="ref-item" href="https://youtu.be/UFoCne_65UE" target="_blank" rel="noopener">
+      <span class="rn">04</span><span class="rt">YouTube Resource</span><span class="ru">youtu.be/UFoCne_65UE</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M8 7h9v9"/></svg>
+    </a>
+    <a class="ref-item" href="https://help.openai.com/en/articles/6654000-comprehensive-step-by-step-guide-to-prompt-engineering-with-chatgpt" target="_blank" rel="noopener">
+      <span class="rn">05</span><span class="rt">OpenAI — Prompt Engineering Guide</span><span class="ru">help.openai.com/...</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M8 7h9v9"/></svg>
+    </a>
+    <a class="ref-item" href="https://aclanthology.org/2024.lrec-main.879/" target="_blank" rel="noopener">
+      <span class="rn">06</span><span class="rt">ACL Anthology — Research Paper (LREC 2024)</span><span class="ru">aclanthology.org/2024.lrec-main.879</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M8 7h9v9"/></svg>
+    </a>
+  </div>
+</section>
+
+<footer>
+  <div class="flogo">PROMPT<span class="slash">//</span>LABYRINTH</div>
+  <div class="ftag">"One task. Multiple paths. One informed choice."</div>
+</footer>
+
+</div><!-- /.wrap -->
+
+<script>
+/* =========================================================
+   PROMPT//LABYRINTH — JavaScript
+   ========================================================= */
+
+/* ---------- 1. Scroll progress bar ---------- */
+const progressFill = document.getElementById('progressFill');
+function updateProgress(){
+  const h = document.documentElement;
+  const scrolled = (h.scrollTop) / (h.scrollHeight - h.clientHeight) * 100;
+  progressFill.style.width = scrolled + '%';
+}
+document.addEventListener('scroll', updateProgress, {passive:true});
+updateProgress();
+
+/* ---------- 2. Hero enter button ---------- */
+document.getElementById('enterBtn').addEventListener('click', () => {
+  document.getElementById('maze').scrollIntoView({behavior:'smooth'});
+});
+
+/* ---------- 3. Maze node navigation ---------- */
+const sectionIds = ['role','tactics','fork','classify','vs','decision','learning','cheatsheet','refs'];
+const mazeNodes = document.querySelectorAll('.maze-node');
+
+mazeNodes.forEach(node => {
+  node.addEventListener('click', () => {
+    const target = node.getAttribute('data-target');
+    const el = document.getElementById(target);
+    if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+  });
+});
+
+/* ---------- 4. Floating side-nav dots (built dynamically) ---------- */
+const floatingNav = document.getElementById('floatingNav');
+sectionIds.forEach(id => {
+  const btn = document.createElement('button');
+  btn.setAttribute('data-nav', id);
+  btn.title = id;
+  btn.addEventListener('click', () => document.getElementById(id).scrollIntoView({behavior:'smooth'}));
+  floatingNav.appendChild(btn);
+});
+
+/* ---------- 5. Scroll-spy: highlight active maze node + nav dot + back-to-maze button ---------- */
+const mazeReturn = document.getElementById('mazeReturn');
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    const id = entry.target.id;
+    if(entry.isIntersecting){
+      mazeNodes.forEach(n => n.classList.toggle('active', n.getAttribute('data-target') === id));
+      document.querySelectorAll('[data-nav]').forEach(d => d.classList.toggle('active', d.getAttribute('data-nav') === id));
+      mazeReturn.classList.toggle('show', id !== 'maze' && id !== 'hero');
+    }
+  });
+}, {threshold:0.4, rootMargin:'-10% 0px -40% 0px'});
+
+sectionIds.concat(['hero','maze']).forEach(id => {
+  const el = document.getElementById(id);
+  if(el) observer.observe(el);
+});
+
+/* ---------- 6. Reveal-on-scroll for .reveal elements ---------- */
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if(entry.isIntersecting){
+      entry.target.classList.add('in');
+      revealObserver.unobserve(entry.target);
+    }
+  });
+}, {threshold:0.15});
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+/* ---------- 7. Traveling pulse light along the maze path ---------- */
+const mazePath = document.getElementById('mazeMainPath');
+const pulse = document.getElementById('mazePulse');
+const pathLength = mazePath.getTotalLength();
+let pulseProgress = 0;
+function animatePulse(){
+  pulseProgress += 0.0022;
+  if(pulseProgress > 1) pulseProgress = 0;
+  const point = mazePath.getPointAtLength(pulseProgress * pathLength);
+  pulse.setAttribute('cx', point.x);
+  pulse.setAttribute('cy', point.y);
+  requestAnimationFrame(animatePulse);
+}
+requestAnimationFrame(animatePulse);
+
+/* ---------- 8. Tactic cards expand/collapse ---------- */
+document.querySelectorAll('.tactic-card').forEach(card => {
+  card.addEventListener('click', () => {
+    const wasOpen = card.classList.contains('open');
+    document.querySelectorAll('.tactic-card').forEach(c => c.classList.remove('open'));
+    if(!wasOpen) card.classList.add('open');
+  });
+});
+
+/* ---------- 9. Zero-shot / few-shot toggle ---------- */
+document.querySelectorAll('.fork-toggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.fork-toggle button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const which = btn.getAttribute('data-fork');
+    document.querySelectorAll('.fork-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('fork-' + which).classList.add('active');
+  });
+});
+
+/* ---------- 10. Simulated classification console ---------- */
+document.getElementById('runClassify').addEventListener('click', () => {
+  const box = document.getElementById('resultBox');
+  box.classList.remove('show');
+  void box.offsetWidth; /* restart transition */
+  setTimeout(() => box.classList.add('show'), 250);
+});
+
+/* ---------- 11. Print cheat sheet ---------- */
+document.getElementById('printBtn').addEventListener('click', () => window.print());
+
+/* ---------- 12. Ambient particle field (neural-network style) ---------- */
+const canvas = document.getElementById('particles');
+const ctx = canvas.getContext('2d');
+let particles = [];
+function resizeCanvas(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+function initParticles(){
+  const count = window.innerWidth < 700 ? 34 : 64;
+  particles = Array.from({length:count}, () => ({
+    x: Math.random()*canvas.width,
+    y: Math.random()*canvas.height,
+    vx: (Math.random()-0.5)*0.15,
+    vy: (Math.random()-0.5)*0.15,
+    r: Math.random()*1.4+0.6
+  }));
+}
+resizeCanvas(); initParticles();
+window.addEventListener('resize', () => { resizeCanvas(); initParticles(); });
+
+function drawParticles(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  particles.forEach(p => {
+    p.x += p.vx; p.y += p.vy;
+    if(p.x < 0 || p.x > canvas.width) p.vx *= -1;
+    if(p.y < 0 || p.y > canvas.height) p.vy *= -1;
+  });
+  for(let i=0;i<particles.length;i++){
+    for(let j=i+1;j<particles.length;j++){
+      const a = particles[i], b = particles[j];
+      const dx = a.x-b.x, dy = a.y-b.y;
+      const dist = Math.sqrt(dx*dx+dy*dy);
+      if(dist < 130){
+        ctx.strokeStyle = `rgba(155,107,255,${0.09 * (1 - dist/130)})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+      }
+    }
+  }
+  particles.forEach(p => {
+    ctx.beginPath();
+    ctx.fillStyle = 'rgba(51,230,255,0.5)';
+    ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fill();
+  });
+  requestAnimationFrame(drawParticles);
+}
+if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+  requestAnimationFrame(drawParticles);
+} else {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+}
+</script>
+</body>
+</html>
