@@ -129,7 +129,7 @@ References to AI models, platforms, tools, organizations, or other third-party t
 ---
 
 ## Author
-
+Niranjana M
 Developed as part of academic learning and practical exploration of:
 
 **Generative AI · Prompt Engineering · LLMs · Computational Linguistics · Computer Vision · Diffusion Models · Interactive Web Technologies**
